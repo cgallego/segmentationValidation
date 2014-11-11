@@ -1,0 +1,190 @@
+Testing segmentation with forest classifier: Design one-shot
+========================================================
+
+First train RF with (casesID=c(1:410), total=410)
+```{r}
+trainRFoneshot <- function(){
+    library(caret)
+    library(randomForest)
+    library(MASS)
+    library(mlbench)
+    library(pROC)
+    
+    library("RSQLite")
+    sqlite <- dbDriver("SQLite")
+    conn <- dbConnect(sqlite, "localData.db")
+    
+    # 2) all T1W features
+    lesionsQuery <- dbGetQuery(conn, "SELECT *
+                            FROM  lesion
+                            INNER JOIN f_dynamic ON (lesion.lesion_id = f_dynamic.lesion_id)
+                            INNER JOIN f_morphology ON (lesion.lesion_id = f_morphology.lesion_id)
+                            INNER JOIN f_texture ON (lesion.lesion_id = f_texture.lesion_id)")
+    
+    # prune entries and extract feature subsets
+    # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+    lesionsfields = names(lesionsQuery[c(1,23,24,3,5,27:60,63:81,84:107)])
+    lesioninfoTrain = lesionsQuery[c(1,23,24,3,5)]
+    featuresTrain = lesionsQuery[c(1,23,27:60,63:81,84:107)]
+        
+    ########## ########## ########## ########## ########## 
+    ### Select subsets of features correspondingly
+    trainingset <- featuresTrain[c(2:79)]        
+    C<-subset(trainingset, lesion_label=="massM" | lesion_label=="nonmassM")
+    ifelse( C$lesion_label == "massM", "C", "C") -> C$lesion_label
+    NC<-subset(trainingset, lesion_label=="massB" | lesion_label=="nonmassB")
+    ifelse( NC$lesion_label == "massB", "NC", "NC") -> NC$lesion_label
+    
+    trainingset = data.frame(rbind(C,NC))
+    
+    ########## ########## ########## ########## ########## 
+    ## 3) For each resampling two AUC ROC curves are constructed for the two feature sets to be compared
+    bootControl <- trainControl(method = "boot", 
+                                number = 10, # number of boostrap iterations
+                                savePredictions = TRUE,
+                                p = 0.75,
+                                classProbs = TRUE,
+                                returnResamp = "all",
+                                verbose = FALSE,
+                                summaryFunction = twoClassSummary)
+    #OUTPUT
+    ########## RF 1
+    RFGrid <- expand.grid( .mtry=c(1:5) )
+    set.seed(10112014)
+    set4_RFfit <- train(as.factor(lesion_label) ~ ., data = trainingset,
+                        method = "rf",
+                        trControl = bootControl,
+                        tuneGrid = RFGrid,
+                        returnData = TRUE,
+                        fitBest = TRUE,
+                        verbose=FALSE,
+                        metric="ROC")
+    print(set4_RFfit)
+    print(set4_RFfit$finalModel)
+    
+    output<-list(set4_RFfit=set4_RFfit, lesioninfoTrain=lesioninfoTrain, featuresTrain=featuresTrain)
+                 
+    return(output)
+}
+```
+
+Now test on independent test set 
+```{r}
+testRFoneshot <- function(set4_RFfit){
+    library("RSQLite")
+    sqlite <- dbDriver("SQLite")
+    conn <- dbConnect(sqlite, "HongboDatabase.db")
+    
+    # 2) all T1W features
+    lesionsQuery <- dbGetQuery(conn, "SELECT *
+                            FROM  lesion
+                            INNER JOIN f_dynamic ON (lesion.lesion_id = f_dynamic.lesion_id)
+                            INNER JOIN f_morphology ON (lesion.lesion_id = f_morphology.lesion_id)
+                            INNER JOIN f_texture ON (lesion.lesion_id = f_texture.lesion_id)")
+    
+    # prune entries and extract feature subsets
+    # corresponds to 5 entries lesion info, 34 dynamic, 19 morpho, 34 texture fueatures
+    lesionsfields = names(lesionsQuery[c(1,23,24,3,5,27:60,63:81,84:107)])
+    lesioninfoTest = lesionsQuery[c(1,23,24,3,5)]
+    featuresTest = lesionsQuery[c(1,23,27:60,63:81,84:107)]
+    
+    ########## ########## ########## ########## ########## 
+    ### Select subsets of features correspondingly
+    originaltestingset = featuresTest
+    testingset <- featuresTest[c(2:79)]                          
+    C<-subset(testingset, lesion_label=="massM" | lesion_label=="nonmassM")
+    ifelse( C$lesion_label == "massM", "C", "C") -> C$lesion_label
+    NC<-subset(testingset, lesion_label=="massB" | lesion_label=="nonmassB")
+    ifelse( NC$lesion_label == "massB", "NC", "NC") -> NC$lesion_label
+    
+    testingset = data.frame(rbind(C,NC))
+    
+    # Record new predictions
+    ######################## 
+    ######################## 
+    RFmodel <- list(RFmodel = set4_RFfit)
+    probValues <- extractProb(RFmodel, testX=testingset[,2:78], testY=testingset[,1])
+    k_probValues <- subset(probValues, dataType=="Test")
+    
+    casestest = data.frame(lesion_id = originaltestingset[,1], lesion_label=originaltestingset[,2])
+    casestest$pred = k_probValues$pred
+    casestest$obs = k_probValues$obs
+    casestest$P = k_probValues$C
+    casestest$N = k_probValues$NC   
+   
+    ############# PLOT
+    RFmodel_ROC <- plot.roc(casestest$obs, casestest$P,
+                             main="Classifier performance on test cases",
+                             percent=TRUE,
+                             col="#860000",
+                             ci = FALSE,
+                             of = "se", 
+                             smooth.method="binormal",
+                             sp = seq(0, 100, 10))
+    print(RFmodel_ROC)
+    legend("bottomright", legend=c("RFmodel"), col=c("#860000"), lwd=2, lty=c(1))    
+                 
+    output<-list(casestest = casestest, lesioninfoTest=lesioninfoTest)
+                 
+    return(output)
+}
+```
+
+Train 
+=====
+```{r}
+setwd("Z:/Cristina/SharePoint/segmentationValidation/classifier")
+RFoneshot <- trainRFoneshot()
+```
+
+Test
+======
+```{r}
+casestest <- testRFoneshot(RFoneshot$set4_RFfit)
+print(casestest)
+```
+
+```{r}
+# decide with train
+cad_pt_test = casestest$lesioninfoTest$cad_pt_no_txt
+
+for(i in 1:length(cad_pt_test)){
+  cadpt = cad_pt_test[i]
+  lencadpt = length(strsplit(cadpt,  split = "")[[1]])
+  if(lencadpt==2){ cadpt = paste0("00",cadpt)}
+  if(lencadpt==3){ cadpt = paste0("0",cadpt)}
+  
+  # find id by StudyId
+  lesioninfoTrain = RFoneshot$lesioninfoTrain
+  lesioninfoTrain[lesioninfoTrain$cad_pt_no_txt==cadpt,]
+  lesionidcatpt = lesioninfoTrain[lesioninfoTrain$cad_pt_no_txt==cadpt,]$lesion_id[1]
+  
+  # extract casetest features
+  featuresTrain = RFoneshot$featuresTrain
+  casetest = featuresTrain[featuresTrain$lesion_id == lesionidcatpt,]
+  if( casetest$lesion_label == "massB") casetest$lesion_label = "NC"
+  if( casetest$lesion_label == "massM") casetest$lesion_label = "C"
+  if( casetest$lesion_label == "nonmassB") casetest$lesion_label = "NC"
+  if( casetest$lesion_label == "nonmassM") casetest$lesion_label = "C"
+  
+  # classify original
+  RFmodel<- list(RFmodel = RFoneshot$set4_RFfit) 
+  probValues <- extractProb(RFmodel, testX=casetest[,3:79], testY=casetest[,2])
+  k_probValues <- subset(probValues, dataType=="Test")
+  
+  dftrain = data.frame(featuresTrain[featuresTrain$lesion_id == lesionidcatpt,1:2])
+  dftrain$pred = k_probValues$pred
+  dftrain$obs = k_probValues$obs
+  dftrain$P1 = k_probValues$C
+  dftrain$N1 = k_probValues$NC
+  print(dftrain)
+  # vs test
+  print(casestest$casestest[i,])
+  print("======")
+
+}
+
+
+```
+
+

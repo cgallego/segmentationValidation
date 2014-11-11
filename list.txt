@@ -1,0 +1,50 @@
+malignant	114	20136	S600	1523	mass  right
+malignant	6044	7942	S600	1200	mass	left	
+malignant	687	1201	S600	1224	mass	right	
+malignant	714	12545	S800	1293	mass	left	
+malignant	714	12545	S800	1295	mass	left
+malignant	730	6667	S600	1268	mass	right	
+malignant	735	11604	S800	1275	mass	right	
+malignant	776	13062	S800	1318	mass	left	
+malignant	776	13062	S800	1319	mass	left	
+malignant	781	2462	S600	1325	mass	right	
+malignant	812	1321	S600	1480	mass	left	
+malignant	815	3656	S600	1358	mass	right	
+malignant	829	11462	S800	1360	mass	right	
+malignant	830	4147	S600	1361	mass	left	
+malignant	760	2288	S600	10497	nonmass right		
+malignant	807	11009	S800	10515	nonmass  left	
+malignant	6037	7300	S600	1160	mass	left -- bgEnh
+malignant	764	8458	S600	1309	mass	right	
+benign	198	5800	S600	65	mass	right	
+benign	198	5800	S600	3	mass	left
+benign	331	4331	S600	36	mass	right	
+benign	651	2290	S600	137	mass	left	
+benign	663	3222	S600	121	mass	right	
+benign	710	11884	S800	1245	mass	left	
+benign	710	11884	S800	1246	mass	left	
+benign	710	11884	S800	1247	mass	right
+benign	839	4966	S600	1379	mass	left	
+benign	856	8280	S600	1393	mass	right	
+benign	731	11537	S800	1269	mass	right	
+benign	736	6041	S600	1297	mass	left	
+benign	758	3085	S600	1305	mass	right	
+benign	799	13427	S800	1498	mass	left	
+benign	839	4966	S600	1378	mass	left	
+benign	850	13610	S800	1490	mass	right	
+benign	856	8280	S600	1392	mass	right	
+benign	707	9906	S700	10465	nonmass left		
+benign	752	5474	S600	10489	nonmass left		
+benign	796	8176	S600	10514	nonmass left		
+benign	850	13610	S800	10543	nonmass right	
+malignant	687	1201	S600	1221	mass	right	
+
+known Problems:
+malignant	722	13163	S1000	1255	mass	right	
+malignant	6005	7660	S600	1113	mass	right	-- bgEnh
+malignant	687	1201	S600	1219	mass	right	-- bgEnh
+benign	331	4331	S600	35	mass	right -- bgEnh
+
+
+
+
